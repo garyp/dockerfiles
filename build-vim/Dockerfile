@@ -1,4 +1,4 @@
-FROM ubuntu:vivid
+FROM ubuntu:wily
 MAINTAINER Gary Peck <gary@realify.com>
 
 RUN useradd -m builder
