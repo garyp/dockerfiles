@@ -60,4 +60,4 @@ ENV SRS_EXTRA_OPTIONS=""
 
 EXPOSE $SRS_FORWARD_PORT $SRS_REVERSE_PORT
 
-CMD ["sh", "-c", "exec /usr/sbin/postsrsd -e -l \"${SRS_LISTEN_ADDR}\" ${SRS_EXTRA_OPTIONS} -u postsrsd -c /var/lib/postsrsd"]
+CMD exec /usr/sbin/postsrsd -e -l "${SRS_LISTEN_ADDR}" ${SRS_EXTRA_OPTIONS} -u postsrsd -c /var/lib/postsrsd
