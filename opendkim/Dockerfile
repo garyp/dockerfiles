@@ -1,4 +1,4 @@
-FROM debian:10
+FROM debian:11
 
 # Install s6-overlay
 ADD https://github.com/just-containers/s6-overlay/releases/download/v2.2.0.3/s6-overlay-amd64-installer /tmp/
@@ -6,7 +6,7 @@ RUN chmod +x /tmp/s6-overlay-amd64-installer && /tmp/s6-overlay-amd64-installer 
 ENTRYPOINT ["/init"]
 
 # Install socklog-overlay
-ADD https://github.com/just-containers/socklog-overlay/releases/download/v3.1.1-1/socklog-overlay-amd64.tar.gz /tmp/
+ADD https://github.com/just-containers/socklog-overlay/releases/download/v3.1.2-0/socklog-overlay-amd64.tar.gz /tmp/
 RUN tar xzf /tmp/socklog-overlay-amd64.tar.gz -C /
 RUN printf "+\n1\n" > /etc/socklog.rules/forward-stdout
 
