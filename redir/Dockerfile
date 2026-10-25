@@ -1,4 +1,4 @@
-FROM debian:11
+FROM debian:13
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
