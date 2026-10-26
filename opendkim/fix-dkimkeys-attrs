@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# Fix ownership/permissions of the keys at startup (replaces the deprecated
+# fix-attrs, whose recursive mode is broken in s6-overlay v3)
+chown -R opendkim:opendkim /etc/dkimkeys
+find /etc/dkimkeys -type d -exec chmod 0500 {} +
+find /etc/dkimkeys -type f -exec chmod 0400 {} +
