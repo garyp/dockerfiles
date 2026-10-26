@@ -1,24 +1,54 @@
-FROM debian:11
+# syntax=docker/dockerfile:1
 
-# Install s6-overlay
-ADD https://github.com/just-containers/s6-overlay/releases/download/v2.2.0.3/s6-overlay-amd64-installer /tmp/
-RUN chmod +x /tmp/s6-overlay-amd64-installer && /tmp/s6-overlay-amd64-installer /
-ENTRYPOINT ["/init"]
+# The checksums must be updated along with S6_OVERLAY_VERSION; they're published
+# as <tarball>.sha256 alongside each release.
+ARG S6_OVERLAY_VERSION=3.2.3.2
+ARG S6_OVERLAY_NOARCH_SHA256=5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb2eda12
+ARG S6_OVERLAY_X86_64_SHA256=e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8aa2408
+ARG SYSLOGD_OVERLAY_NOARCH_SHA256=7d94a01ca36db0f7659ab90301b6b7aff6d0fc786f2271873c9b77ac27f02921
 
-# Install socklog-overlay
-ADD https://github.com/just-containers/socklog-overlay/releases/download/v3.1.2-0/socklog-overlay-amd64.tar.gz /tmp/
-RUN tar xzf /tmp/socklog-overlay-amd64.tar.gz -C /
-RUN printf "+\n1\n" > /etc/socklog.rules/forward-stdout
+# Download stage, so the tarballs don't end up in the final image's layers
+FROM scratch AS s6-overlay
+ARG S6_OVERLAY_VERSION
+ARG S6_OVERLAY_NOARCH_SHA256
+ARG S6_OVERLAY_X86_64_SHA256
+ARG SYSLOGD_OVERLAY_NOARCH_SHA256
+ADD --checksum=sha256:${S6_OVERLAY_NOARCH_SHA256} \
+    https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /
+ADD --checksum=sha256:${S6_OVERLAY_X86_64_SHA256} \
+    https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /
+ADD --checksum=sha256:${SYSLOGD_OVERLAY_NOARCH_SHA256} \
+    https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/syslogd-overlay-noarch.tar.xz /
+
+FROM debian:13
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         opendkim \
         opendkim-tools \
         openssl \
+        xz-utils \
         && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN printf "/etc/dkimkeys true opendkim 0400 0500\n" > /etc/fix-attrs.d/01-opendkim
+# Install s6-overlay, and syslogd-overlay (replaces socklog-overlay in s6-overlay v3)
+RUN --mount=type=bind,from=s6-overlay,target=/tmp/s6-overlay \
+    tar -C / -Jxpf /tmp/s6-overlay/s6-overlay-noarch.tar.xz && \
+    tar -C / -Jxpf /tmp/s6-overlay/s6-overlay-x86_64.tar.xz && \
+    tar -C / -Jxpf /tmp/s6-overlay/syslogd-overlay-noarch.tar.xz
+ENTRYPOINT ["/init"]
+
+RUN useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin syslog && \
+    useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin sysllog
+# Also forward all syslog messages to stdout. This appends a final directive
+# to the upstream s6-log script, so it relies on that script ending with the
+# s6-log directives; recheck when updating S6_OVERLAY_VERSION (the opendkim
+# tests cover this).
+RUN printf " + 1\n" >> /etc/s6-overlay/s6-rc.d/syslogd-log/run
+
+# Fix ownership/permissions of the keys at startup
+COPY fix-dkimkeys-attrs /etc/cont-init.d/01-opendkim
+RUN chmod 755 /etc/cont-init.d/01-opendkim
 
 COPY opendkim.conf opendkim.local.conf /etc/
 RUN chmod 644 /etc/opendkim.conf /etc/opendkim.local.conf
